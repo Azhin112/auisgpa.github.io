@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AUIS GPA Calculator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f0f4f8;
+    }
+    h1 {
+      text-align: center;
+    }
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 1rem;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .semester {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: #fafafa;
+    }
+    .semester h2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0;
+    }
+    .course-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .course-row input, .course-row select {
+      flex: 1 1 30%;
+      padding: 0.5rem;
+    }
+    .course-row button {
+      flex: 1 1 auto;
+      padding: 0.5rem;
+      background-color: #d9534f;
+      border: none;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .add-course-btn, .add-semester-btn {
+      background-color: #0275d8;
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      margin-top: 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .remove-semester-btn {
+      background-color: #dc3545;
+      border: none;
+      color: white;
+      padding: 0.3rem 0.7rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .totals {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    @media (max-width: 600px) {
+      .course-row {
+        flex-direction: column;
+      }
+      .semester h2 {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AUIS GPA Calculator</h1>
+    <div id="semesters"></div>
+    <button class="add-semester-btn" onclick="addSemester()">Add Semester</button>
+    <div class="totals" id="grandTotals"></div>
+  </div>
+
+  <script>
+    const gradeScale = {
+      "A": 4.0, "A-": 3.7, "B+": 3.3, "B": 3.0, "B-": 2.7,
+      "C+": 2.3, "C": 2.0, "C-": 1.7, "D+": 1.3, "D": 1.0,
+      "F": 0.0, "P": null
+    };
+
+    let semesterCount = 0;
+    const semesters = {};
+
+    function addSemester() {
+      semesterCount++;
+      const semId = semesterCount;
+      semesters[semId] = true;
+
+      const semDiv = document.createElement('div');
+      semDiv.className = 'semester';
+      semDiv.id = `semester-${semId}`;
+      semDiv.innerHTML = `
+        <h2>
+          Semester ${semId}
+          <button class="remove-semester-btn" onclick="removeSemester(${semId})">Remove Semester</button>
+        </h2>
+        <div class="courses" id="courses-${semId}"></div>
+        <button class="add-course-btn" onclick="addCourse(${semId})">Add Course</button>
+        <div class="totals" id="totals-${semId}"></div>
+      `;
+      document.getElementById('semesters').appendChild(semDiv);
+      addCourse(semId);
+    }
+
+    function addCourse(semesterId) {
+      const courseDiv = document.createElement('div');
+      courseDiv.className = 'course-row';
+      courseDiv.innerHTML = `
+        <input type="text" placeholder="Course Code or Name" />
+        <input type="number" placeholder="Credit Hours" min="0" step="0.5" />
+
+       
+        <select>
+          <option value="" disabled selected>Select Grade</option>
+          ${Object.keys(gradeScale).map(g => `<option value="${g}">${g}</option>`).join('')}
+        </select>
+
+        <button onclick="this.parentElement.remove(); updateGPA()">Remove Course</button>
+      `;
+      document.getElementById(`courses-${semesterId}`).appendChild(courseDiv);
+      updateGPA();
+    }
+
+    function removeSemester(id) {
+      const sem = document.getElementById(`semester-${id}`);
+      if (sem) {
+        sem.remove();
+        delete semesters[id];
+        updateGPA();
+      }
+    }
+
+    function updateGPA() {
+      let totalCreditsAttempted = 0;
+      let totalCreditsEarned = 0;
+      let totalQualityPoints = 0;
+
+      for (let i = 1; i <= semesterCount; i++) {
+        if (!semesters[i]) continue;
+
+        let semesterDiv = document.getElementById(`courses-${i}`);
+        let rows = semesterDiv.querySelectorAll('.course-row');
+        let semCredits = 0, semEarned = 0, semQuality = 0;
+
+        rows.forEach(row => {
+          let credit = parseFloat(row.children[1].value);
+          let grade = row.children[2].value;
+          if (!isNaN(credit)) {
+            if (grade !== "P") {
+              let points = gradeScale[grade];
+              semCredits += credit;
+              semQuality += points * credit;
+              if (points > 0) semEarned += credit;
+            } else {
+              semEarned += credit; // P = earned, not attempted
+            }
+          }
+        });
+
+        let semGPA = semCredits ? (semQuality / semCredits).toFixed(2) : "0.00";
+        document.getElementById(`totals-${i}`).textContent =
+          `Credits Attempted: ${semCredits}, Credits Earned: ${semEarned}, GPA: ${semGPA}`;
+
+        totalCreditsAttempted += semCredits;
+        totalCreditsEarned += semEarned;
+        totalQualityPoints += semQuality;
+      }
+
+      let CGPA = totalCreditsAttempted ? (totalQualityPoints / totalCreditsAttempted).toFixed(2) : "0.00";
+      document.getElementById('grandTotals').textContent =
+        `Total Credits Attempted: ${totalCreditsAttempted}, Credits Earned: ${totalCreditsEarned}, CGPA: ${CGPA}`;
+    }
+
+    document.addEventListener('input', updateGPA);
+  </script>
+</body>
+</html>
